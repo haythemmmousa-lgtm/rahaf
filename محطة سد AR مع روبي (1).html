@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>محطة سد AR مع روبي</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b1220;--fg:#fff;--ac:#4fd1ff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:Tajawal,system-ui,sans-serif;overflow:hidden;touch-action:none}
+#vid{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;display:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;z-index:1;display:block}
+#start{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;background:linear-gradient(160deg,#0b1220,#16345a)}
+#start h1{margin:0;font-size:26px}#start p{margin:0;max-width:360px;line-height:1.7;opacity:.85}
+button{font:inherit;color:#fff;background:#1d6fd1;border:0;border-radius:999px;padding:11px 20px;font-size:16px}
+button.alt{background:#2c3e57}button:focus-visible{outline:3px solid #fff}
+#ui{position:fixed;left:0;right:0;bottom:0;z-index:4;display:none;padding:10px 12px calc(12px + env(safe-area-inset-bottom,0px));box-sizing:border-box}
+#bub{background:rgba(5,10,20,.78);border-radius:16px;padding:12px 14px;font-size:18px;line-height:1.6;margin-bottom:10px;min-height:56px}
+#bub b{color:var(--ac);display:block;font-size:15px}
+#ctl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+#dots{display:flex;gap:5px;justify-content:center;margin-bottom:8px}#dots i{width:22px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)}#dots i.on{background:var(--ac)}
+#msg{margin-top:6px;color:#ffd24a;min-height:20px;font-size:14px}
+</style>
+</head>
+<body>
+<video id="vid" playsinline muted autoplay></video>
+<div id="start">
+  <div style="font-size:54px">🤖</div>
+  <h1>محطة السد بالواقع المعزز</h1>
+  <p>أنا سيف! هاشرحلك إزاي المية بتتحول لكهربا. اختار طريقة العرض:</p>
+  <button id="bAR">ابدأ AR (كاميرا الموبايل)</button>
+  <button id="bView" class="alt">عرض عادي (بدون كاميرا)</button>
+  <div id="msg"></div>
+</div>
+<div id="ui">
+  <div id="dots"></div>
+  <div id="bub"></div>
+  <div id="ctl">
+    <button id="bPrev" class="alt">السابق</button>
+    <button id="bPlay">إيقاف</button>
+    <button id="bNext" class="alt">التالي</button>
+    <button id="bMute" class="alt">🔊</button>
+    <button id="bPitch" class="alt">🎚 نبرة 2/4</button>
+    <button id="bVoice" class="alt">🗣 صوت</button>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const R=new THREE.WebGLRenderer({antialias:true,alpha:true});R.setPixelRatio(Math.min(devicePixelRatio,2));R.setClearColor(0x000000,0);
+document.body.appendChild(R.domElement);
+const S=new THREE.Scene(),cam=new THREE.PerspectiveCamera(60,1,.01,100);
+function fit(){const w=innerWidth,h=innerHeight;R.setSize(w,h);cam.aspect=w/h;cam.fov=w<h?72:58;cam.updateProjectionMatrix();}
+addEventListener('resize',fit);fit();
+S.add(new THREE.HemisphereLight(0xdfeeff,0x4a5a3a,1));
+const sun=new THREE.DirectionalLight(0xfff1d0,1.1);sun.position.set(40,60,20);S.add(sun);
+
+/* ===== model (scaled group) ===== */
+const P=new THREE.Group(),W=new THREE.Group();S.add(P);P.add(W);
+const M=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.7,metalness:.05},o));
+const add=(g,m,x,y,z)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);W.add(o);return o;};
+const bx=(w,h,d,m,x,y,z)=>add(new THREE.BoxGeometry(w,h,d),m,x,y,z);
+function wtex(){const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');x.fillStyle='#2b79b8';x.fillRect(0,0,256,256);
+for(let i=0;i<90;i++){x.fillStyle='rgba(190,230,255,'+(.1+Math.random()*.25)+')';x.fillRect(Math.random()*256,Math.random()*256,4+Math.random()*30,2);}
+const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;}
+add(new THREE.CylinderGeometry(62,64,2,48),M(0x5f8c4b),0,-1,3);
+const rock=M(0x8a7a63,{roughness:.95});
+bx(20,8,52,rock,-32,4,-26);bx(20,8,52,rock,32,4,-26);bx(80,8,6,rock,0,4,-53);
+const tm=M(0x2f6b34),tk=M(0x5a3d22);
+for(let i=0;i<40;i++){const x=-45+Math.random()*90,z=8+Math.random()*50;
+if((Math.abs(x)<14&&z<18)||Math.abs(x-(z+2))<6||Math.abs(x)<7)continue;
+const s=1+Math.random()*.8;add(new THREE.ConeGeometry(1.2*s,4*s,7),tm,x,2*s,z);add(new THREE.CylinderGeometry(.2,.25,1,6),tk,x,.5,z);}
+const rt=wtex();rt.repeat.set(2,14);const river=add(new THREE.PlaneGeometry(12,90),M(0x2b79b8,{map:rt,roughness:.25,metalness:.3}),0,.08,45);river.rotation.x=-Math.PI/2;
+const lt=wtex();lt.repeat.set(6,8);const lake=add(new THREE.PlaneGeometry(44,52),M(0x2b79b8,{map:lt,roughness:.2,metalness:.35}),0,7.3,-27);lake.rotation.x=-Math.PI/2;
+const conc=M(0xc9ccd0,{roughness:.9});
+bx(44,9,3,conc,0,4.5,0);bx(44,.4,3.4,M(0x9aa0a8),0,9.1,0);
+const wall=M(0xe9e2d3),roof=new THREE.MeshStandardMaterial({color:0x6a7f95,transparent:true,opacity:.35});
+bx(10,.4,7,M(0x8f959c),0,.2,7.5);bx(10,6,.4,wall,0,3,4.3);bx(.4,6,7,wall,-5,3,7.5);bx(.4,6,7,wall,5,3,7.5);bx(10.6,.4,7.6,roof,0,6.2,7.5);
+const P1=new THREE.Vector3(0,6.4,.4),P2=new THREE.Vector3(0,1.3,5.6),dir=P2.clone().sub(P1),len=dir.length();
+const pipe=add(new THREE.CylinderGeometry(.9,.9,len,24,1,true),new THREE.MeshStandardMaterial({color:0x9fd8ee,transparent:true,opacity:.4,side:THREE.DoubleSide,metalness:.5,roughness:.2}),0,0,0);
+pipe.position.copy(P1.clone().add(P2).multiplyScalar(.5));pipe.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.clone().normalize());
+const dm=new THREE.MeshStandardMaterial({color:0x6fc6ff,emissive:0x1e6fa8}),dg=new THREE.SphereGeometry(.28,10,8),drops=[];
+for(let i=0;i<26;i++){const d=add(dg,dm,0,0,0);d.userData.s=i/26;drops.push(d);}
+const steel=M(0x3b7f9f,{metalness:.6,roughness:.35});
+add(new THREE.SphereGeometry(1.25,28,20),M(0xb8802a,{metalness:.7,roughness:.3}),0,1.2,6.4);
+add(new THREE.CylinderGeometry(.3,.3,2.2,16),M(0xaaaaaa,{metalness:.8}),0,2.2,6.4);
+add(new THREE.CylinderGeometry(1.5,1.5,1.5,40),steel,0,3.1,6.4);
+add(new THREE.TorusGeometry(1.5,.08,10,40),M(0xd08b24,{metalness:.7}),0,3.85,6.4).rotation.x=Math.PI/2;
+const rotor=new THREE.Group();rotor.position.set(0,4.05,6.4);W.add(rotor);
+rotor.add(new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,.5,16),M(0xdddddd,{metalness:.8})));
+for(let i=0;i<6;i++){const g=new THREE.Group();g.rotation.y=i*Math.PI/3;const a=new THREE.Mesh(new THREE.BoxGeometry(1.5,.18,.3),M(0xd9d9d9,{metalness:.7}));a.position.x=.9;g.add(a);
+const m=new THREE.Mesh(new THREE.BoxGeometry(.45,.5,.5),M(i%2?0x3b82d6:0xe8481c));m.position.x=1.65;g.add(m);rotor.add(g);}
+bx(2,1.6,1.4,M(0x4b5563),-3.6,.9,8);bx(1.4,.5,1.4,M(0x3b82d6),-3.6,2.1,8);
+const steelM=M(0x7a8794,{metalness:.6}),PY=[[12,10],[20,18],[28,26],[36,34]];
+PY.forEach(([x,z])=>{const t=add(new THREE.ConeGeometry(1.6,9,4),steelM,x,4.5,z);t.rotation.y=Math.PI/4;bx(4,.25,.25,steelM,x,8,z);});
+const lm=new THREE.LineBasicMaterial({color:0x222222});
+for(let k=-1;k<=1;k++){const pts=[new THREE.Vector3(5,1.2,8)];PY.forEach(([x,z])=>pts.push(new THREE.Vector3(x+k*1.6,7.9,z)));W.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),lm));}
+bx(1,1,1,M(0x444444),5,.5,8);
+const wins=[];[[33,42],[39,38],[30,46],[41,45],[36,50]].forEach(([x,z])=>{const m=new THREE.MeshStandardMaterial({color:0xcfc4b0,emissive:0xffc860,emissiveIntensity:0});
+bx(3,2.4,3,m,x,1.2,z);bx(3.6,.4,3.6,M(0x8a3b2a),x,2.6,z);wins.push(m);});
+
+/* ===== robot "Roby" ===== */
+const robot=new THREE.Group(),white=M(0xf2f5f8,{metalness:.3,roughness:.4}),dark=M(0x14233a,{metalness:.4}),cy=new THREE.MeshBasicMaterial({color:0x4fd1ff});
+function rp(g,m,x,y,z,p=robot){const o=new THREE.Mesh(g,m);o.position.set(x,y,z);p.add(o);return o;}
+rp(new THREE.CylinderGeometry(2.1,2.5,4.4,20),white,0,5,0);
+rp(new THREE.SphereGeometry(2.3,24,18),white,0,8.6,0);
+rp(new THREE.BoxGeometry(3.4,1.5,1.2),dark,0,8.8,1.7);
+rp(new THREE.SphereGeometry(.38,10,8),cy,-.8,8.8,2.35);rp(new THREE.SphereGeometry(.38,10,8),cy,.8,8.8,2.35);
+rp(new THREE.CylinderGeometry(.12,.12,1.4,8),dark,0,11.2,0);rp(new THREE.SphereGeometry(.4,10,8),new THREE.MeshBasicMaterial({color:0xff9d2e}),0,12,0);
+rp(new THREE.SphereGeometry(1.5,16,12),dark,0,2.2,0);rp(new THREE.ConeGeometry(1,2,12),new THREE.MeshBasicMaterial({color:0x4fd1ff,transparent:true,opacity:.5}),0,.6,0).rotation.x=Math.PI;
+function arm(x){const g=new THREE.Group();g.position.set(x,6.4,0);robot.add(g);rp(new THREE.CylinderGeometry(.5,.5,3.4,10),white,0,-1.7,0,g);rp(new THREE.SphereGeometry(.65,10,8),dark,0,-3.5,0,g);return g;}
+const armL=arm(-2.8),armR=arm(2.8);
+robot.scale.setScalar(.85);W.add(robot);robot.position.set(14,0,22);
+const hl=new THREE.Mesh(new THREE.SphereGeometry(1,24,16),new THREE.MeshBasicMaterial({color:0xffd24a,transparent:true,opacity:.28,depthWrite:false}));hl.visible=false;W.add(hl);
+
+/* ===== tour ===== */
+const ST=[
+{n:'مقدمة',t:'أهلاً! أنا سيف 🤖 هاشرحلك إزاي محطة السد بتعمل كهربا من مية النهر. تعالى نتمشى سوا.',p:[14,0,24],a:null},
+{n:'السد',t:'ده السد. بيحجز مية النهر ورا حيطة خرسانة ضخمة، فالمية بتتجمع في بحيرة عالية. المية العالية دي مخزّنة طاقة، زي حجر فوق جبل.',p:[16,9.6,3],a:[0,5,0],r:9},
+{n:'ماسورة الضغط',t:'دي ماسورة الضغط العالي. المية بتنزل فيها من فوق بسرعة وقوة كبيرة، وكل ما الارتفاع زاد، قوة المية زادت.',p:[9,0,14],a:[0,4,3],r:3.2},
+{n:'التوربين',t:'هنا التوربين، زي مروحة ضخمة. المية بتخبط في ريشه فيلف بسرعة، والتوربين متوصل بالمولد بعمود فيلفه معاه.',p:[8,0,13],a:[0,1.4,6.4],r:2.4},
+{n:'المولد',t:'جوه المولد في مغناطيسات بتلف جنب ملفات نحاس. لما المغناطيس يتحرك قصاد النحاس بيتولد تيار كهربا. دي فكرة الحث الكهرومغناطيسي.',p:[8,0,14],a:[0,3.6,6.4],r:2.6},
+{n:'المحول',t:'ده المحول. بيرفع الجهد الكهربائي عشان الكهربا تقدر تسافر مسافات طويلة من غير ما تضيع في الطريق.',p:[-9,0,14],a:[-3.6,1.2,8],r:2.2},
+{n:'الأبراج',t:'دي أبراج الضغط العالي. الأسلاك اللي عليها بتشيل الكهربا من المحطة لحد المدينة.',p:[18,0,12],a:[20,5,18],r:6},
+{n:'البيوت',t:'وأخيراً البيوت! الكهربا وصلت ولمباتها نورت. شفت؟ من مية النهر لنور البيت. شكراً إنك كنت معايا!',p:[28,0,38],a:[36,2,44],r:8}];
+const dots=$('dots');ST.forEach(()=>dots.appendChild(document.createElement('i')));
+const PITCH=[.45,.55,.7,1];let pi=1,vi=0;let idx=0,auto=true,muted=false,tok=0,started=false,time=0,spin=.15,lit=0;
+function say(t,done){const my=tok;let fin=false;const f=()=>{if(fin||my!==tok)return;fin=true;done();};
+setTimeout(f,t.length*110+3500);
+if(muted||!window.speechSynthesis)return setTimeout(f,t.length*60+1500);
+try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='ar-EG';const vs=(speechSynthesis.getVoices()||[]).filter(v=>v.lang&&v.lang.startsWith('ar'));const v=vs[vi%Math.max(1,vs.length)];if(v)u.voice=v;u.rate=1;u.pitch=PITCH[pi];u.onend=f;u.onerror=f;speechSynthesis.speak(u);}catch(e){}}
+function go(i){idx=Math.max(0,Math.min(ST.length-1,i));tok++;const s=ST[idx];
+$('bub').innerHTML='<b>سيف — '+s.n+'</b>'+s.t;[...dots.children].forEach((d,k)=>d.className=k===idx?'on':'');
+spin=idx>=3?1:.15;
+say(s.t,()=>{if(auto&&idx<ST.length-1)go(idx+1);else if(idx===ST.length-1){auto=false;$('bPlay').textContent='من الأول';}});}
+$('bVoice').onclick=()=>{vi++;go(idx);};
+$('bPitch').onclick=()=>{pi=(pi+1)%PITCH.length;$('bPitch').textContent='🎚 نبرة '+(pi+1)+'/4';go(idx);};
+$('bNext').onclick=()=>go(idx+1);$('bPrev').onclick=()=>go(idx-1);
+$('bPlay').onclick=()=>{if($('bPlay').textContent==='من الأول'){auto=true;$('bPlay').textContent='إيقاف';go(0);return;}
+auto=!auto;$('bPlay').textContent=auto?'إيقاف':'تشغيل';if(auto)go(idx);else{tok++;try{speechSynthesis.cancel();}catch(e){}}};
+$('bMute').onclick=()=>{muted=!muted;$('bMute').textContent=muted?'🔇':'🔊';if(muted){tok++;try{speechSynthesis.cancel();}catch(e){}go(idx);}};
+
+/* ===== modes ===== */
+let xr=false,placed=false,hts=null,refSpace=null,reticle=null;
+function showUI(){$('start').style.display='none';$('ui').style.display='block';}
+function setS(s){W.scale.setScalar(s);W.position.set(-8*s,0,-18*s);}
+function flat(sc,y,z){P.position.set(0,y,z);P.rotation.x=.4;setS(sc);P.rotation.y=-.5;started=true;showUI();go(0);}
+$('bView').onclick=()=>{S.background=new THREE.Color(0xa6cdee);flat(.026,-.45,-1.2);};
+$('bAR').onclick=async()=>{const m=$('msg');
+if(navigator.xr&&await navigator.xr.isSessionSupported('immersive-ar').catch(()=>false)){
+ try{xr=true;R.xr.enabled=true;S.remove(P);S.add(W);W.visible=false;W.scale.setScalar(.012);
+ reticle=new THREE.Mesh(new THREE.RingGeometry(.08,.1,32).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0x4fd1ff}));reticle.matrixAutoUpdate=false;reticle.visible=false;S.add(reticle);
+ showUI();$('bub').innerHTML='<b>سيف</b>حرّك الموبايل لحد ما تظهر الدايرة على الأرض، وبعدين دوس عليها.';
+ const s=await navigator.xr.requestSession('immersive-ar',{requiredFeatures:['hit-test'],optionalFeatures:['dom-overlay'],domOverlay:{root:$('ui')}});
+ R.xr.setReferenceSpaceType('local');await R.xr.setSession(s);
+ s.requestReferenceSpace('viewer').then(r=>s.requestHitTestSource({space:r})).then(h=>hts=h);
+ $('ui').addEventListener('beforexrselect',e=>e.preventDefault());
+ s.addEventListener('select',()=>{if(!placed&&reticle.visible){W.position.setFromMatrixPosition(reticle.matrix);W.visible=true;placed=true;reticle.visible=false;started=true;go(0);}});
+ s.addEventListener('end',()=>location.reload());return;}catch(e){xr=false;R.xr.enabled=false;S.remove(W);S.add(P);P.add(W);W.visible=true;}}
+try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});const v=$('vid');v.srcObject=st;v.style.display='block';flat(.026,-.45,-1.2);}
+catch(e){m.textContent='الكاميرا مش متاحة هنا. افتحي الرابط في تبويب جديد بمتصفح الموبايل وسمحي بالكاميرا، أو جرّبي العرض العادي.';}};
+
+/* drag to rotate / pinch to scale (non-XR) */
+const ptr=new Map();let pd=0;
+R.domElement.addEventListener('pointerdown',e=>ptr.set(e.pointerId,e));
+R.domElement.addEventListener('pointerup',e=>{ptr.delete(e.pointerId);pd=0;});
+R.domElement.addEventListener('pointercancel',e=>{ptr.delete(e.pointerId);pd=0;});
+R.domElement.addEventListener('pointermove',e=>{if(xr||!ptr.has(e.pointerId))return;const o=ptr.get(e.pointerId);ptr.set(e.pointerId,e);
+if(ptr.size===1)P.rotation.y+=(e.clientX-o.clientX)*.01;
+else if(ptr.size===2){const [a,b]=[...ptr.values()],d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);if(pd)setS(W.scale.x*Math.max(.9,Math.min(1.1,d/pd)));pd=d;}});
+
+/* ===== loop ===== */
+const clock=new THREE.Clock(),tmp=new THREE.Vector3();
+function render(t,frame){const dt=Math.min(clock.getDelta(),.05);time+=dt;
+if(xr&&frame&&hts&&!placed){refSpace=R.xr.getReferenceSpace();const h=hts.getHitTestResults(frame);
+ if(h.length){reticle.visible=true;reticle.matrix.fromArray(h[0].getPose(refSpace).transform.matrix);}else reticle.visible=false;}
+rotor.rotation.y+=dt*4.5*spin;rt.offset.y-=dt*.35;lt.offset.y-=dt*.02;
+drops.forEach(d=>{d.userData.s=(d.userData.s+dt*.5)%1;d.position.lerpVectors(P1,P2,d.userData.s);});
+lit+=((idx>=7?1.6:.15)-lit)*dt*1.5;wins.forEach(m=>m.emissiveIntensity=lit);
+const s=ST[idx],tp=new THREE.Vector3(...s.p);tp.y+=Math.sin(time*2)*.5+1;
+tmp.copy(tp).sub(robot.position);const dist=tmp.length();robot.position.lerp(tp,Math.min(1,dt*2));
+const look=s.a?new THREE.Vector3(...s.a):cam.position.clone();
+if(dist>1.5)look.copy(tp);
+let aim=s.a&&dist<=1.5?Math.atan2(s.a[0]-robot.position.x,s.a[2]-robot.position.z):(dist>.3?Math.atan2(tmp.x,tmp.z):robot.rotation.y);
+if(!s.a&&dist<=1.5){W.updateWorldMatrix(true,false);const c=W.worldToLocal(cam.getWorldPosition(new THREE.Vector3()));aim=Math.atan2(c.x-robot.position.x,c.z-robot.position.z);}
+let df=aim-robot.rotation.y;df=Math.atan2(Math.sin(df),Math.cos(df));robot.rotation.y+=df*Math.min(1,dt*4);
+const pt=s.a&&dist<=1.5;armR.rotation.x+=((pt?-1.9:Math.sin(time*3)*.15)-armR.rotation.x)*Math.min(1,dt*6);
+armL.rotation.x=Math.sin(time*3+1)*.12;
+hl.visible=!!(s.a&&dist<=3);if(hl.visible){hl.position.set(...s.a);hl.scale.setScalar(s.r*(1+Math.sin(time*4)*.08));}
+R.render(S,cam);}
+R.setAnimationLoop(render);
+if(window.speechSynthesis)speechSynthesis.getVoices();
+</script>
+</body>
+</html>
